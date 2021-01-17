@@ -1,0 +1,15 @@
+version: "3"
+
+services:
+  api:
+    build:
+      dockerfile: Dockerfile.dev
+      context: .
+    volumes:
+      - .:/aes-encryptor
+    environment:
+      - DEPLOY_MODE=development
+    env_file:
+      - ./.env
+    ports:
+    - 5000:5000

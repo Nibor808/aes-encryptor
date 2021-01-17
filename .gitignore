@@ -1,0 +1,6 @@
+*.log
+*.iml
+.DS_Store
+.idea/
+*.env
+/main
