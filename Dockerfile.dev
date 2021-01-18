@@ -1,6 +1,6 @@
 FROM golang:latest
 ENV GO111MODULE=on
-WORKDIR /app
+WORKDIR /aes-encryptor
 
 COPY go.mod .
 COPY go.sum .
@@ -10,4 +10,4 @@ COPY . .
 
 RUN go get github.com/githubnemo/CompileDaemon
 
-ENTRYPOINT CompileDaemon -command=./main
+ENTRYPOINT CompileDaemon -log-prefix=false -command=./main

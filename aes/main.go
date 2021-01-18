@@ -6,52 +6,73 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"fmt"
-	"github.com/julienschmidt/httprouter"
 	"io"
 	"log"
 	"net/http"
-	"os"
 
+	"github.com/julienschmidt/httprouter"
 	"golang.org/x/crypto/bcrypt"
 )
 
+type messageData struct {
+	message string
+	key     string
+}
+
+type response struct {
+	statusCode       uint8
+	message          string
+	encryptedMessage string
+}
+
+// Run runs the module
 func Run(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	msg := "The message coming in from the form"
+	msgData := messageData{
+		message: r.FormValue("message"),
+		key:     r.FormValue("key"),
+	}
 
-	key, err := createKey("ilovedogs")
+	iv, blk, err := createVector([]byte(msgData.key))
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	iv, blk, err := createVector(key)
-	if err != nil {
-		log.Fatalln(err)
+	encData := msgData.encryptMessage(blk, iv)
+	encMessage := []byte(fmt.Sprintf("ENCRYPTED: %s\nMESSAGE: %s\nCODE: %d\n",
+		encData.encryptedMessage, encData.message, encData.statusCode))
+
+	if _, err = w.Write(encMessage); err != nil {
+		log.Println("error writing encrypted", err)
 	}
 
-	wtr := &bytes.Buffer{}
-	encWriter, err := encryptWriter(wtr, blk, iv)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	_, err = io.WriteString(encWriter, msg)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	encrypted := wtr.String()
-
-	fmt.Println("ENCODED WITH AES:", encrypted)
-
-	rdr := bytes.NewReader([]byte(encrypted))
+	rdr := bytes.NewReader([]byte(encData.encryptedMessage))
 
 	encReader, err := encryptReader(rdr, blk, iv)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	if _, err = io.Copy(os.Stdout, encReader); err != nil {
+	if _, err = io.Copy(w, encReader); err != nil {
 		log.Fatalln(err)
+	}
+}
+
+func (msgData *messageData) encryptMessage(blk cipher.Block, iv []byte) *response {
+	wtr := &bytes.Buffer{}
+	encWriter, err := encryptWriter(wtr, blk, iv)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	_, err = io.WriteString(encWriter, msgData.message)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	return &response{
+		statusCode:       http.StatusOK,
+		message:          "Encryption Successful",
+		encryptedMessage: wtr.String(),
 	}
 }
 
@@ -93,7 +114,12 @@ func createKey(str string) ([]byte, error) {
 // createVector returns a newly created initialization vector
 // and the cipher.Block to be passed to encryptWriter and encryptReader
 func createVector(key []byte) ([]byte, cipher.Block, error) {
-	b, err := aes.NewCipher(key)
+	cipherKey, err := createKey(string(key))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	b, err := aes.NewCipher(cipherKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting new cipher: %w", err)
 	}

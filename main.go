@@ -41,7 +41,6 @@ func main() {
 	log.Fatal(http.ListenAndServe(PORT, handler))
 }
 
-
 func index(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 	w.Header().Set("Content-Type", "text/html charset=utf8")
 	w.WriteHeader(http.StatusOK)
